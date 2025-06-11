@@ -3,7 +3,7 @@
 <package format="3">
   <name>bsripkg_lightring</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Uses Create3's Button1 to display colors in the lightring</description>
   <maintainer email="juanjuo37@gmail.com">juan</maintainer>
   <license>Apache-2.0</license>
 
@@ -11,10 +11,10 @@
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
+  <depend>rclpy</depend> <!--pkg dependencies added -->
+  <depend>irobot_create_msgs</depend> <!--pkg dependencies added -->
 
   <export>
     <build_type>ament_python</build_type>
-    <depend>rclpy</depend> <!--pkg dependencies added -->
-    <depend>irobot_create_msgs</depend> <!--pkg dependencies added -->
   </export>
 </package>

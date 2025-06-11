@@ -15,7 +15,7 @@ setup(
     zip_safe=True,
     maintainer='juan',
     maintainer_email='juanjuo37@gmail.com',
-    description='TODO: Package description',
+    description='Uses Create3\'s Button1 to display colors in the lightring',
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
