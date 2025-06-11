@@ -1,3 +1,6 @@
+# Juan Diego Mora Rubio 06/11/2025
+# This ROS package for the Turtlebot4 uses Button1 from the Create3 to change color on the Create3 lightring
+
 from irobot_create_msgs.msg import InterfaceButtons, LightringLeds
 
 import rclpy
