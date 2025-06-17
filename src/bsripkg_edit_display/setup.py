@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'bsripkg_lightring'
+package_name = 'bsripkg_edit_display'
 
 setup(
     name=package_name,
@@ -15,13 +15,12 @@ setup(
     zip_safe=True,
     maintainer='juan',
     maintainer_email='juanjuo37@gmail.com',
-    description='Uses Create3\'s Button1 to display colors in the lightring',
+    description='Writes on Turtlebot4 Display',
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'bsri_node_lightring_test = bsripkg_lightring.bsri_node_lightring_test:main',
-            'bsri_node_lightring_pulse = bsripkg_lightring.bsri_node_lightring_pulse:main',
+            'turtlebot4_display_node = bsripkg_edit_display.turtlebot4_display_node:main'
         ],
     },
 )
