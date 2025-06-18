@@ -4,7 +4,9 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import qos_profile_default
 from std_msgs.msg import String
-
+from gtts import gTTS
+import subprocess
+from io import BytesIO
 
 class TurtleBot4FirstNode(Node):
 
@@ -20,46 +22,30 @@ class TurtleBot4FirstNode(Node):
         while(True):
             self.publish_message()
 
-    def timer_callback(self):
-        msg = String()
-        msg.data = 'Hello World: %d' % self.i
-        self.display_publisher.publish(msg)
-        self.get_logger().info('Publishing: "%s"' % msg.data)
-        self.i += 1
-
     def publish_message(self):
         msg = String()
         user_message = input("What do you want Turtlebot to say?: ")
         msg.data = user_message
+        # Convert text to speech (in memory)
+        tts = gTTS(text = user_message, lang='en')
+        mp3_fp = BytesIO()
+        tts.write_to_fp(mp3_fp)
+        mp3_fp.seek(0)  # Go to start of buffer
+
+        # Play MP3 using mpg123 by piping data into its stdin
+        try:
+            proc = subprocess.Popen(
+                ['mpg123', '-'],  # '-' tells mpg123 to read from stdin
+                stdin=subprocess.PIPE
+            )
+            proc.stdin.write(mp3_fp.read())
+            proc.stdin.close()
+            proc.wait()
+        except Exception as e:
+            print(f"Error playing audio: {e}")
+
         self.display_publisher.publish(msg)
         self.get_logger().info('Publishing: "%s"' % msg.data)
-
-
-    # # Interface buttons subscription callback
-    # def interface_buttons_callback(self, create3_buttons_msg: InterfaceButtons):
-    #     # Button 1 is pressed
-    #     if create3_buttons_msg.button_1.is_pressed:
-    #         self.get_logger().info('Button 1 Pressed!')
-    #         self.button_1_function()
-
-    # Perform a function when Button 1 is pressed
-    # def button_1_function(self):
-    #     # Create a ROS 2 message
-    #     lightring_msg = LightringLeds()
-    #     # Stamp the message with the current time
-    #     lightring_msg.header.stamp = self.get_clock().now().to_msg()
-
-    #     # Lights are currently off
-
-    #     # Override system lights
-
-    #     # Lights are currently on
-    #         # Disable system override. The system will take back control of the lightring.
-
-    #     # Publish the message
-    #     self.lightring_publisher.publish(lightring_msg)
-    #     # Toggle the lights on status
-    #     self.lights_on_ = not self.lights_on_
 
 
 def main(args=None):

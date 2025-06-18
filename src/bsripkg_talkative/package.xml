@@ -13,6 +13,8 @@
   <test_depend>python3-pytest</test_depend>
   <depend>rclpy</depend> <!--pkg dependencies added -->
   <depend>std_msgs</depend><!--pkg dependencies added -->
+  <depend>gtts</depend><!--pkg dependencies added -->
+  <depend>io</depend><!--pkg dependencies added -->
 
 
   <export>
