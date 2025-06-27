@@ -62,7 +62,7 @@ class TurtleBot4OneShotNode(Node):
 
         self.wait_for_service(self.e_stop_client)
         self.call_e_stop(True)  # STOP robot
-        rclpy.spin_once(self, timeout_sec=0.5)
+        rclpy.spin_once(self, timeout_sec=2)
         self.wait_for_publishers_ready()
 
         # Always turn on red lights first
@@ -148,10 +148,11 @@ class TurtleBot4OneShotNode(Node):
         msg.header.stamp = self.get_clock().now().to_msg()
 
         # Two short notes: C (261 Hz), F# (370 Hz) for 200 ms
-        note_c = AudioNote(frequency=261, max_runtime=Duration(sec=0, nanosec=500_000_000))
-        note_fs = AudioNote(frequency=370, max_runtime=Duration(sec=0, nanosec=500_000_000))
+        note_c = AudioNote(frequency=261, max_runtime=Duration(sec=0, nanosec=700_000_000))
+        note_fs = AudioNote(frequency=370, max_runtime=Duration(sec=0, nanosec=700_000_000))
 
         msg.notes = [note_fs, note_c]
+        time.sleep(2)
         self.audio_beep_publisher.publish(msg)
 
 def main(args=None):
