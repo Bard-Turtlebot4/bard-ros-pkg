@@ -1,85 +1,73 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import time
+import subprocess
+
+import rclpy
+from rclpy.node import Node
+from rclpy.qos import qos_profile_default
+
 from irobot_create_msgs.msg import (
     LightringLeds,
     LedColor,
     AudioNote,
     AudioNoteVector
 )
-from builtin_interfaces.msg import Duration
 from irobot_create_msgs.srv import EStop
+from builtin_interfaces.msg import Duration
 from std_msgs.msg import String
 
-import rclpy
-from rclpy.node import Node
-from rclpy.qos import qos_profile_default
-
-import argparse
-import time
-import subprocess
-import os
-
-
-MAX_LED_ON_TIME = 10  # seconds
-WAIT_FOR_SUBSCRIBERS_TIMEOUT = 2.0  # seconds
+# === CONFIG ===
+MAX_LED_ON_TIME = 10
+WAIT_FOR_SUBSCRIBERS_TIMEOUT = 2.0
 PROMPT_FILENAME = "prompt_text.txt"
+DEFAULT_PROMPT_FOLDER = "/home/ubuntu/bsri_tts_prompts/mor_cap_verbal"
 
 
-def resolve_audio_path(filename: str) -> str:
-    if os.path.isabs(filename) and os.path.isfile(filename):
-        return filename
-    fallback = os.path.join(os.getcwd(), filename)
-    if os.path.isfile(fallback):
-        return fallback
-    raise FileNotFoundError(f"Audio file '{filename}' not found.")
+def load_prompt_line(index: int, base_path: str = DEFAULT_PROMPT_FOLDER) -> tuple[str, str]:
+    prompt_path = os.path.join(base_path, PROMPT_FILENAME)
+    if not os.path.isfile(prompt_path):
+        raise FileNotFoundError(f"Missing prompt file: {prompt_path}")
 
+    with open(prompt_path, 'r', encoding='utf-8') as f:
+        lines = [line.strip() for line in f if ':' in line]
 
-def lookup_response_for_audio(mp3_path: str) -> str:
-    folder = os.path.dirname(mp3_path)
-    prompt_file_path = os.path.join(folder, PROMPT_FILENAME)
-    filename = os.path.basename(mp3_path)
+    if index < 0 or index >= len(lines):
+        raise IndexError(f"Prompt index {index} out of bounds (0–{len(lines)-1})")
 
-    if not os.path.isfile(prompt_file_path):
-        raise FileNotFoundError(f"{PROMPT_FILENAME} not found in: {folder}")
-
-    with open(prompt_file_path, 'r', encoding='utf-8') as f:
-        for line in f:
-            if ':' not in line:
-                continue
-            name, text = line.split(':', 1)
-            if name.strip() == filename:
-                return text.strip().strip('“”"')
-
-    raise ValueError(f"No response found for '{filename}' in {prompt_file_path}")
+    line = lines[index]
+    audio_name, text = line.split(':', 1)
+    audio_path = os.path.join(base_path, audio_name.strip())
+    return audio_path, text.strip().strip('“”"')
 
 
 class TurtleBot4OneShotNode(Node):
-    def __init__(self, audio_path: str | None):
+    def __init__(self, audio_path: str | None, message_text: str | None):
         super().__init__('bsri_request_handler')
 
         self.display_publisher = self.create_publisher(String, '/hmi/display/message', qos_profile_default)
         self.lightring_publisher = self.create_publisher(LightringLeds, '/cmd_lightring', qos_profile_default)
-        self.audio_beep_publisher = self.create_publisher(AudioNoteVector, '/cmd_audio', qos_profile_default)
+        self.audio_publisher = self.create_publisher(AudioNoteVector, '/cmd_audio', qos_profile_default)
         self.e_stop_client = self.create_client(EStop, '/e_stop')
 
         self.wait_for_service(self.e_stop_client)
-        self.call_e_stop(True)  # STOP robot
-        rclpy.spin_once(self, timeout_sec=2)
+        self.call_e_stop(True)
+        rclpy.spin_once(self, timeout_sec=2.0)
         self.wait_for_publishers_ready()
 
-        # Always turn on red lights first
         self.set_lightring_red()
 
-        if audio_path:
-            # Audio file mode
-            message_text = lookup_response_for_audio(audio_path)
+        if audio_path and message_text:
             self.display_message(message_text)
-            self.play_audio_while_red(audio_path)
+            self.play_audio_file(audio_path)
         else:
-            # Fallback mode: empty message + beeps
             self.display_message(" ")
             self.play_beep_notes()
 
         self.release_lightring()
-        self.call_e_stop(False)  # RESUME robot
+        self.call_e_stop(False)
 
     def wait_for_service(self, client):
         self.get_logger().info("Waiting for /e_stop service...")
@@ -96,14 +84,14 @@ class TurtleBot4OneShotNode(Node):
             state = "ENABLED" if stop_on else "DISABLED"
             self.get_logger().info(f"[EStop] Robot E-Stop {state}")
         else:
-            self.get_logger().warn("[EStop] Service call failed or timed out.")
+            self.get_logger().warn("[EStop] E-Stop call failed or timed out.")
 
     def wait_for_publishers_ready(self):
         start = time.time()
         while time.time() - start < WAIT_FOR_SUBSCRIBERS_TIMEOUT:
             if (self.lightring_publisher.get_subscription_count() > 0 or
                 self.display_publisher.get_subscription_count() > 0 or
-                self.audio_beep_publisher.get_subscription_count() > 0):
+                self.audio_publisher.get_subscription_count() > 0):
                 return
             time.sleep(0.1)
 
@@ -128,7 +116,7 @@ class TurtleBot4OneShotNode(Node):
         self.lightring_publisher.publish(msg)
         self.get_logger().info("[LightRing] Override released")
 
-    def play_audio_while_red(self, path: str):
+    def play_audio_file(self, path: str):
         self.get_logger().info(f"[Audio] Playing: {path}")
         try:
             proc = subprocess.Popen(['mpg123', path])
@@ -147,25 +135,34 @@ class TurtleBot4OneShotNode(Node):
         msg = AudioNoteVector()
         msg.header.stamp = self.get_clock().now().to_msg()
 
-        # Two short notes: C (261 Hz), F# (370 Hz) for 200 ms
         note_c = AudioNote(frequency=261, max_runtime=Duration(sec=0, nanosec=700_000_000))
         note_fs = AudioNote(frequency=370, max_runtime=Duration(sec=0, nanosec=700_000_000))
 
         msg.notes = [note_fs, note_c]
         time.sleep(2)
-        self.audio_beep_publisher.publish(msg)
+        self.audio_publisher.publish(msg)
+
 
 def main(args=None):
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--audio", help="MP3 filename or full path to play")
-    cli_args = parser.parse_args()
-
     rclpy.init(args=args)
     try:
-        resolved_audio_path = resolve_audio_path(cli_args.audio) if cli_args.audio else None
-        node = TurtleBot4OneShotNode(resolved_audio_path)
+        # Default values
+        audio_path = None
+        message_text = None
+
+        # Command-line usage: ros2 run bsripkg_experiment_2025 bsri_request_denied [index]
+        if len(sys.argv) >= 2:
+            try:
+                index = int(sys.argv[1])
+                audio_path, message_text = load_prompt_line(index)
+            except Exception as e:
+                print(f"[ERROR] Could not load prompt: {e}")
+                sys.exit(1)
+
+        node = TurtleBot4OneShotNode(audio_path, message_text)
         rclpy.spin_once(node, timeout_sec=0.1)
         node.destroy_node()
+
     finally:
         rclpy.shutdown()
 
