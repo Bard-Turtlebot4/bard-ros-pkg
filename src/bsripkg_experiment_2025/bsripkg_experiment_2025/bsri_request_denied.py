@@ -23,10 +23,9 @@ from std_msgs.msg import String
 MAX_LED_ON_TIME = 10
 WAIT_FOR_SUBSCRIBERS_TIMEOUT = 2.0
 PROMPT_FILENAME = "prompt_text.txt"
-DEFAULT_PROMPT_FOLDER = "/home/ubuntu/bsri_tts_prompts/mor_cap_verbal"
 
 
-def load_prompt_line(index: int, base_path: str = DEFAULT_PROMPT_FOLDER) -> tuple[str, str]:
+def load_prompt_line(index: int, base_path: str = os.getcwd()) -> tuple[str, str]:
     prompt_path = os.path.join(base_path, PROMPT_FILENAME)
     if not os.path.isfile(prompt_path):
         raise FileNotFoundError(f"Missing prompt file: {prompt_path}")
@@ -34,10 +33,11 @@ def load_prompt_line(index: int, base_path: str = DEFAULT_PROMPT_FOLDER) -> tupl
     with open(prompt_path, 'r', encoding='utf-8') as f:
         lines = [line.strip() for line in f if ':' in line]
 
-    if index < 0 or index >= len(lines):
-        raise IndexError(f"Prompt index {index} out of bounds (0–{len(lines)-1})")
+    # Validate and parse
+    if index < 1 or index > len(lines):
+        raise IndexError(f"Prompt index {index} out of bounds (1–{len(lines)})")
 
-    line = lines[index]
+    line = lines[index - 1]  # Adjust for 1-based indexing
     audio_name, text = line.split(':', 1)
     audio_path = os.path.join(base_path, audio_name.strip())
     return audio_path, text.strip().strip('“”"')
